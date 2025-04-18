@@ -105,6 +105,8 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
                     if (thumb == null) {
                         throw new BusinessException(ErrorCode.OPERATION_ERROR,"用户未点赞");
                     }
+                    thumbInfo = new ThumbInfo();
+                    thumbInfo.setThumbId(thumb.getId());
                 }
                 boolean update = blogService.lambdaUpdate()
                         .eq(Blog::getId, blogId)
@@ -132,8 +134,8 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
                     .eq(Thumb::getUserId, userId)
                     .eq(Thumb::getBlogId, blogId)
                     .one();
-            if (thumb == null) {
-                return false;
+            if (thumb != null) {
+                return true;
             }
         }
         // 判断是否过期
