@@ -83,7 +83,7 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
                         .eq(Thumb::getBlogId, blogId)
                         .one();
                 if (thumb == null) {
-                    throw new RuntimeException("用户未点赞");
+                    throw new BusinessException(ErrorCode.OPERATION_ERROR,"用户未点赞");
                 }
                 boolean update = blogService.lambdaUpdate()
                         .eq(Blog::getId, blogId)
