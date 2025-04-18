@@ -68,9 +68,11 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
                 // 点赞记录存入 Redis
                 if (success) {
                     String key = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString();
-                    redisTemplate.opsForHash().put(key, blogId.toString(), thumb.getId());
-                    // 设置过期时间为一个月
-                    redisTemplate.expire(key, 30, TimeUnit.DAYS);
+                    String field = blogId.toString();
+                    redisTemplate.opsForHash().put(key, field, thumb.getId());
+                    // 为每个field设置过期时间
+                    String fieldKey = key + ":" + field;
+                    redisTemplate.expire(fieldKey, 30, TimeUnit.DAYS);
                 }
                 // 更新成功才执行
                 return success;
@@ -90,9 +92,19 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
             // 编程式事务
             return transactionTemplate.execute(status -> {
                 Long blogId = doThumbRequest.getBlogId();
-                Long thumbId = ((Long) redisTemplate.opsForHash().get(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString(), blogId.toString()));
+                String key = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString();
+                String field = blogId.toString();
+                Long thumbId = ((Long) redisTemplate.opsForHash().get(key, field));
                 if (thumbId == null) {
-                    throw new BusinessException(ErrorCode.OPERATION_ERROR,"用户未点赞");
+                    //查询数据库
+                    Thumb thumb = this.lambdaQuery()
+                           .eq(Thumb::getUserId, loginUser.getId())
+                           .eq(Thumb::getBlogId, blogId)
+                           .one();
+                    if (thumb == null) {
+                        throw new BusinessException(ErrorCode.OPERATION_ERROR,"用户未点赞");
+                    }
+                    thumbId = thumb.getId();
                 }
                 boolean update = blogService.lambdaUpdate()
                         .eq(Blog::getId, blogId)
@@ -103,7 +115,10 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
 
                 // 点赞记录从 Redis 删除
                 if (success) {
-                    redisTemplate.opsForHash().delete(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId(), blogId.toString());
+                    redisTemplate.opsForHash().delete(key, field);
+                    // 删除field的过期时间key
+                    String fieldKey = key + ":" + field;
+                    redisTemplate.delete(fieldKey);
                 }
                 return success;
             });
@@ -113,7 +128,12 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
 
     @Override
     public Boolean hasThumb(Long blogId, Long userId) {
-        return redisTemplate.opsForHash().hasKey(ThumbConstant.USER_THUMB_KEY_PREFIX + userId, blogId.toString());
+        String key = ThumbConstant.USER_THUMB_KEY_PREFIX + userId;
+        String field = blogId.toString();
+        String fieldKey = key + ":" + field;
+        // 检查field的过期时间key是否存在
+        return Boolean.TRUE.equals(redisTemplate.hasKey(fieldKey)) && 
+               redisTemplate.opsForHash().hasKey(key, field);
     }
 
 }
