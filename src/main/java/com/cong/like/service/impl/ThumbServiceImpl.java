@@ -6,6 +6,7 @@ import com.cong.like.constant.ThumbConstant;
 import com.cong.like.excption.BusinessException;
 import com.cong.like.mapper.ThumbMapper;
 import com.cong.like.model.dto.thumb.DoThumbRequest;
+import com.cong.like.model.dto.thumb.ThumbInfo;
 import com.cong.like.model.entity.Blog;
 import com.cong.like.model.entity.Thumb;
 import com.cong.like.model.entity.User;
@@ -18,8 +19,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.concurrent.TimeUnit;
+import java.time.LocalDateTime;
 
 /**
  * @author cong
@@ -37,6 +39,8 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
     private final TransactionTemplate transactionTemplate;
 
     private final RedisTemplate<String, Object> redisTemplate;
+
+    private final ObjectMapper objectMapper;
 
     @Override
     public Boolean doThumb(DoThumbRequest doThumbRequest, HttpServletRequest request) {
@@ -68,13 +72,11 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
                 // 点赞记录存入 Redis
                 if (success) {
                     String key = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString();
-                    String field = blogId.toString();
-                    redisTemplate.opsForHash().put(key, field, thumb.getId());
-                    // 为每个field设置过期时间
-                    String fieldKey = key + ":" + field;
-                    redisTemplate.expire(fieldKey, 30, TimeUnit.DAYS);
+                    ThumbInfo thumbInfo = new ThumbInfo();
+                    thumbInfo.setThumbId(thumb.getId());
+                    thumbInfo.setExpireTime(LocalDateTime.now().plusDays(30));
+                    redisTemplate.opsForHash().put(key, blogId.toString(), thumbInfo);
                 }
-                // 更新成功才执行
                 return success;
             });
         }
@@ -93,32 +95,27 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
             return transactionTemplate.execute(status -> {
                 Long blogId = doThumbRequest.getBlogId();
                 String key = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString();
-                String field = blogId.toString();
-                Long thumbId = ((Long) redisTemplate.opsForHash().get(key, field));
-                if (thumbId == null) {
+                ThumbInfo thumbInfo = (ThumbInfo) redisTemplate.opsForHash().get(key, blogId.toString());
+                if (thumbInfo == null || thumbInfo.getExpireTime().isBefore(LocalDateTime.now())) {
                     //查询数据库
                     Thumb thumb = this.lambdaQuery()
-                           .eq(Thumb::getUserId, loginUser.getId())
-                           .eq(Thumb::getBlogId, blogId)
-                           .one();
+                            .eq(Thumb::getUserId, loginUser.getId())
+                            .eq(Thumb::getBlogId, blogId)
+                            .one();
                     if (thumb == null) {
                         throw new BusinessException(ErrorCode.OPERATION_ERROR,"用户未点赞");
                     }
-                    thumbId = thumb.getId();
                 }
                 boolean update = blogService.lambdaUpdate()
                         .eq(Blog::getId, blogId)
                         .setSql("thumbCount = thumbCount - 1")
                         .update();
 
-                boolean success = update && this.removeById(thumbId);
+                boolean success = update && this.removeById(thumbInfo.getThumbId());
 
                 // 点赞记录从 Redis 删除
                 if (success) {
-                    redisTemplate.opsForHash().delete(key, field);
-                    // 删除field的过期时间key
-                    String fieldKey = key + ":" + field;
-                    redisTemplate.delete(fieldKey);
+                    redisTemplate.opsForHash().delete(key, blogId.toString());
                 }
                 return success;
             });
@@ -129,11 +126,23 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
     @Override
     public Boolean hasThumb(Long blogId, Long userId) {
         String key = ThumbConstant.USER_THUMB_KEY_PREFIX + userId;
-        String field = blogId.toString();
-        String fieldKey = key + ":" + field;
-        // 检查field的过期时间key是否存在
-        return Boolean.TRUE.equals(redisTemplate.hasKey(fieldKey)) && 
-               redisTemplate.opsForHash().hasKey(key, field);
+        ThumbInfo thumbInfo = (ThumbInfo) redisTemplate.opsForHash().get(key, blogId.toString());
+        if (thumbInfo == null) {
+            Thumb thumb = this.lambdaQuery()
+                    .eq(Thumb::getUserId, userId)
+                    .eq(Thumb::getBlogId, blogId)
+                    .one();
+            if (thumb == null) {
+                return false;
+            }
+        }
+        // 判断是否过期
+        if (thumbInfo.getExpireTime().isBefore(LocalDateTime.now())) {
+            // 如果过期，删除该记录
+            redisTemplate.opsForHash().delete(key, blogId.toString());
+            return false;
+        }
+        return true;
     }
 
 }
