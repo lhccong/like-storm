@@ -21,7 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 /**
  * @author cong
@@ -74,7 +75,8 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
                     String key = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString();
                     ThumbInfo thumbInfo = new ThumbInfo();
                     thumbInfo.setThumbId(thumb.getId());
-                    thumbInfo.setExpireTime(LocalDateTime.now().plusDays(30));
+                    // 设置30天后的时间戳
+                    thumbInfo.setExpireTime(Instant.now().plus(30, ChronoUnit.DAYS).toEpochMilli());
                     redisTemplate.opsForHash().put(key, blogId.toString(), thumbInfo);
                 }
                 return success;
@@ -96,7 +98,7 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
                 Long blogId = doThumbRequest.getBlogId();
                 String key = ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId().toString();
                 ThumbInfo thumbInfo = (ThumbInfo) redisTemplate.opsForHash().get(key, blogId.toString());
-                if (thumbInfo == null || thumbInfo.getExpireTime().isBefore(LocalDateTime.now())) {
+                if (thumbInfo == null || thumbInfo.getExpireTime() < System.currentTimeMillis()) {
                     //查询数据库
                     Thumb thumb = this.lambdaQuery()
                             .eq(Thumb::getUserId, loginUser.getId())
@@ -137,9 +139,10 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb>
             if (thumb != null) {
                 return true;
             }
+            return false;
         }
         // 判断是否过期
-        if (thumbInfo.getExpireTime().isBefore(LocalDateTime.now())) {
+        if (thumbInfo.getExpireTime() < System.currentTimeMillis()) {
             // 如果过期，删除该记录
             redisTemplate.opsForHash().delete(key, blogId.toString());
             return false;
