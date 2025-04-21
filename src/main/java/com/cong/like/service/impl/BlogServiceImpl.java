@@ -3,15 +3,14 @@ package com.cong.like.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ObjUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.cong.like.constant.ThumbConstant;
 import com.cong.like.mapper.BlogMapper;
 import com.cong.like.model.entity.Blog;
-import com.cong.like.model.entity.Thumb;
 import com.cong.like.model.entity.User;
 import com.cong.like.model.vo.BlogVO;
 import com.cong.like.service.BlogService;
 import com.cong.like.service.ThumbService;
 import com.cong.like.service.UserService;
+import com.cong.like.utils.RedisKeyUtil;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Lazy;
@@ -21,7 +20,6 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -66,7 +64,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
         if (ObjUtil.isNotEmpty(loginUser)) {
             List<Object> blogIdList = blogList.stream().map(blog -> blog.getId().toString()).distinct().collect(Collectors.toList());
             // 获取点赞
-            List<Object> thumbList = redisTemplate.opsForHash().multiGet(ThumbConstant.USER_THUMB_KEY_PREFIX + loginUser.getId(), blogIdList);
+            List<Object> thumbList = redisTemplate.opsForHash().multiGet(RedisKeyUtil.getUserThumbKey(loginUser.getId()), blogIdList);
             for (int i = 0; i < thumbList.size(); i++) {
                 if (thumbList.get(i) == null) {
                     continue;
