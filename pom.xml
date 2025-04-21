@@ -32,6 +32,13 @@
     </scm>
 
     <dependencies>
+        <!-- 本地缓存 -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.1.8</version>
+        </dependency>
+
         <!-- 引入 Redis -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
