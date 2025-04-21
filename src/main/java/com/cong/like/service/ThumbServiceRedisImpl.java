@@ -31,9 +31,7 @@ public class ThumbServiceRedisImpl extends ServiceImpl<ThumbMapper, Thumb> imple
 
     @Override
     public Boolean doThumb(DoThumbRequest doThumbRequest, HttpServletRequest request) {
-        if (doThumbRequest == null || doThumbRequest.getBlogId() == null) {
-            throw new BusinessException(ErrorCode.OPERATION_ERROR, "参数错误");
-        }
+        checkThumbParams(doThumbRequest);
         //获取用户、帖子 id
         User loginUser = userService.getLoginUser(request);
         Long blogId = doThumbRequest.getBlogId();
@@ -53,16 +51,44 @@ public class ThumbServiceRedisImpl extends ServiceImpl<ThumbMapper, Thumb> imple
         );
 
         if (result == null || LuaStatusEnum.FAIL.getValue() == result) {
-            throw new RuntimeException("用户已点赞");
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "用户已点赞");
         }
 
         // 更新成功才执行
         return LuaStatusEnum.SUCCESS.getValue() == result;
     }
 
+    private static void checkThumbParams(DoThumbRequest doThumbRequest) {
+        if (doThumbRequest == null || doThumbRequest.getBlogId() == null) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "参数错误");
+        }
+    }
+
     @Override
     public Boolean undoThumb(DoThumbRequest doThumbRequest, HttpServletRequest request) {
-        return null;
+        checkThumbParams(doThumbRequest);
+
+        //获取用户、帖子 id
+        User loginUser = userService.getLoginUser(request);
+        Long blogId = doThumbRequest.getBlogId();
+
+        //获取当前整数秒（为了统一处理临时集合）
+        String timeSlice = getTimeSlice();
+        //生成 redis key
+        String tempThumbKey = RedisKeyUtil.getTempThumbKey(timeSlice);
+        String userThumbKey = RedisKeyUtil.getUserThumbKey(loginUser.getId());
+        // 执行取消 Lua 脚本
+        Long result = redisTemplate.execute(
+                RedisLuaConstant.UNTHUMB_SCRIPT,
+                Arrays.asList(tempThumbKey, userThumbKey),
+                loginUser.getId(),
+                blogId
+        );
+        // 根据返回值处理结果
+        if (result == null || result == LuaStatusEnum.FAIL.getValue()) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR,"用户未点赞");
+        }
+        return LuaStatusEnum.SUCCESS.getValue() == result;
     }
 
     @Override
