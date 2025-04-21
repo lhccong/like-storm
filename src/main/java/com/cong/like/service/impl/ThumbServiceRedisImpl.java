@@ -1,4 +1,4 @@
-package com.cong.like.service;
+package com.cong.like.service.impl;
 
 import cn.hutool.core.date.DateTime;
 import cn.hutool.core.date.DateUtil;
@@ -11,6 +11,8 @@ import com.cong.like.model.dto.thumb.DoThumbRequest;
 import com.cong.like.model.entity.Thumb;
 import com.cong.like.model.entity.User;
 import com.cong.like.model.enums.LuaStatusEnum;
+import com.cong.like.service.ThumbService;
+import com.cong.like.service.UserService;
 import com.cong.like.utils.RedisKeyUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;

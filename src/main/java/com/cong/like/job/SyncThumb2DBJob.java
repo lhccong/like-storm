@@ -1,4 +1,4 @@
-package com.cong.like.service;
+package com.cong.like.job;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateTime;
@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.cong.like.mapper.BlogMapper;
 import com.cong.like.model.entity.Thumb;
 import com.cong.like.model.enums.ThumbTypeEnum;
+import com.cong.like.service.ThumbService;
 import com.cong.like.utils.RedisKeyUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
