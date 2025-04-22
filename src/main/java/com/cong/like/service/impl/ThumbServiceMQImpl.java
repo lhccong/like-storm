@@ -107,7 +107,7 @@ public class ThumbServiceMQImpl extends ServiceImpl<ThumbMapper, Thumb>
 
     @Override
     public Boolean hasThumb(Long blogId, Long userId) {
-        return null;
+        return redisTemplate.opsForHash().hasKey(RedisKeyUtil.getUserThumbKey(userId), blogId.toString());
     }
 
     private static void checkThumbParams(DoThumbRequest doThumbRequest) {
