@@ -8,9 +8,9 @@ spring:
   # DataSource Config
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/like_storm
+    url: jdbc:mysql://127.0.0.1:400/like_storm
     username: root
-    password: root
+    password:
 # mybatis-plus
 mybatis-plus:
   configuration:
