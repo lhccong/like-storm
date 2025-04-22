@@ -96,7 +96,7 @@ public class ThumbServiceMQImpl extends ServiceImpl<ThumbMapper, Thumb>
                 .type(ThumbEvent.EventType.DECR)
                 .eventTime(LocalDateTime.now())
                 .build();
-        pulsarTemplate.sendAsync("thumb-topic", thumbEvent).exceptionally(ex -> {
+        pulsarTemplate.sendAsync("like-topic", thumbEvent).exceptionally(ex -> {
             // 回滚取消点赞
             redisTemplate.opsForHash().put(userThumbKey, blogId.toString(), true);
             log.error("取消点赞已回滚，请人工检查异常，点赞事件发送失败: userId={}, blogId={}", loginUserId, blogId, ex);
