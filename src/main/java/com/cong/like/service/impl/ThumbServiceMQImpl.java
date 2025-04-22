@@ -74,7 +74,35 @@ public class ThumbServiceMQImpl extends ServiceImpl<ThumbMapper, Thumb>
 
     @Override
     public Boolean undoThumb(DoThumbRequest doThumbRequest, HttpServletRequest request) {
-        return null;
+        checkThumbParams(doThumbRequest);
+        User loginUser = userService.getLoginUser(request);
+        Long loginUserId = loginUser.getId();
+        Long blogId = doThumbRequest.getBlogId();
+        String userThumbKey = RedisKeyUtil.getUserThumbKey(loginUserId);
+
+        // 执行 Lua 脚本，点赞记录从 Redis 删除
+        Long result = redisTemplate.execute(
+                RedisLuaConstant.UNTHUMB_SCRIPT_MQ,
+                List.of(userThumbKey),
+                blogId
+        );
+
+        if (result == null || LuaStatusEnum.FAIL.getValue() == result) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "用户已点赞");
+        }
+        ThumbEvent thumbEvent = ThumbEvent.builder()
+                .blogId(blogId)
+                .userId(loginUserId)
+                .type(ThumbEvent.EventType.DECR)
+                .eventTime(LocalDateTime.now())
+                .build();
+        pulsarTemplate.sendAsync("thumb-topic", thumbEvent).exceptionally(ex -> {
+            // 回滚取消点赞
+            redisTemplate.opsForHash().put(userThumbKey, blogId.toString(), true);
+            log.error("取消点赞已回滚，请人工检查异常，点赞事件发送失败: userId={}, blogId={}", loginUserId, blogId, ex);
+            return null;
+        });
+        return true;
     }
 
     @Override
