@@ -19,7 +19,7 @@ import java.util.Set;
  *
  * @author cong
  */
-@Component
+//@Component
 @Slf4j
 public class SyncThumb2DBCompensatoryJob {
 

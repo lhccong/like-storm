@@ -25,7 +25,7 @@ import java.util.Map;
  *
  * @author cong
  */
-@Component
+//@Component
 @Slf4j
 public class SyncThumb2DBJob {
 
