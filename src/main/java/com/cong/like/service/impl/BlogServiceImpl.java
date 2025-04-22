@@ -51,8 +51,10 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog>
         BlogVO blogVO = new BlogVO();
         BeanUtil.copyProperties(blog, blogVO);
 
-        Boolean exist = thumbService.hasThumb(blog.getId(), loginUser.getId());
-        blogVO.setHasThumb(exist);
+        if (loginUser != null) {
+            Boolean exist = thumbService.hasThumb(blog.getId(), loginUser.getId());
+            blogVO.setHasThumb(exist);
+        }
 
         return blogVO;
     }
