@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>博客点赞系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .login-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .blog-list {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .blog-item {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .blog-title {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .blog-content {
+            color: #666;
+            margin-bottom: 15px;
+        }
+        .blog-image {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+        .blog-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #3498db;
+            color: white;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            outline: none;
+        }
+        input:focus {
+            border-color: #3498db;
+        }
+        .thumb-count {
+            color: #666;
+        }
+        .user-info {
+            margin-left: auto;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="login-section">
+                <input type="number" id="userId" placeholder="请输入用户ID">
+                <button onclick="login()">登录</button>
+                <span class="user-info" id="userInfo"></span>
+            </div>
+        </div>
+        <div class="blog-list" id="blogList">
+            <!-- 博客列表将通过 JavaScript 动态加载 -->
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8123/api';
+        let currentUser = null;
+
+        // 登录功能
+        async function login() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) {
+                alert('请输入用户ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/user/login?userId=${userId}`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                if (result.code === 0) {
+                    currentUser = result.data;
+                    document.getElementById('userInfo').textContent = `当前用户: ${currentUser.userName || userId}`;
+                    loadBlogs();
+                } else {
+                    alert('登录失败');
+                }
+            } catch (error) {
+                console.error('登录错误:', error);
+                alert('登录失败');
+            }
+        }
+
+        // 加载博客列表
+        async function loadBlogs() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/blog/list`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                if (result.code === 0) {
+                    const blogList = document.getElementById('blogList');
+                    blogList.innerHTML = result.data.map(blog => `
+                        <div class="blog-item">
+                            <div class="blog-title">${blog.title || '无标题'}</div>
+                            ${blog.coverImg ? `<img src="${blog.coverImg}" alt="博客封面" class="blog-image">` : ''}
+                            <div class="blog-content">${blog.content || '无内容'}</div>
+                            <div class="blog-actions">
+                                <button onclick="doThumb(${blog.id}, ${blog.hasThumb})" ${!currentUser ? 'disabled' : ''}>
+                                    ${blog.hasThumb ? '取消点赞' : '点赞'}
+                                </button>
+                                <span class="thumb-count">点赞数: ${blog.thumbCount || 0}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('加载博客列表错误:', error);
+            }
+        }
+
+        // 点赞功能
+        async function doThumb(blogId, hasThumb) {
+            if (!currentUser || !currentUser.id) {
+                alert('请先登录');
+                return;
+            }
+
+            try {
+                const url = hasThumb ? `${API_BASE_URL}/thumb/undo` : `${API_BASE_URL}/thumb/do`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        blogId: blogId,
+                        userId: currentUser.id
+                    })
+                });
+                const result = await response.json();
+                if (result.code === 0) {
+                    loadBlogs(); // 重新加载博客列表以更新点赞状态
+                } else {
+                    alert('操作失败');
+                }
+            } catch (error) {
+                console.error('点赞错误:', error);
+                alert('操作失败');
+            }
+        }
+
+        // 页面加载时检查登录状态
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/user/get/login`, {
+                    credentials: 'include'
+                });
+                const result = await response.json();
+                if (result.code === 0 && result.data) {
+                    currentUser = result.data;
+                    if (currentUser && currentUser.id) {
+                        document.getElementById('userInfo').textContent = `当前用户: ${currentUser.userName || currentUser.id}`;
+                        loadBlogs();
+                    } else {
+                        currentUser = null;
+                        document.getElementById('userInfo').textContent = '';
+                    }
+                }
+            } catch (error) {
+                console.error('检查登录状态错误:', error);
+                currentUser = null;
+            }
+        }
+
+        // 页面加载完成后执行
+        window.onload = function() {
+            checkLoginStatus();
+        };
+    </script>
+</body>
+</html> 
