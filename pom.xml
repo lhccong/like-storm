@@ -32,6 +32,16 @@
     </scm>
 
     <dependencies>
+        <!-- 整合 Prometheus + Grafana -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
         <!-- 引入 spring-pulsar -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
