@@ -23,3 +23,15 @@ knife4j:
     language: zh_cn
 server:
   port: 8123
+# 整合 Prometheus + Grafana
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, prometheus
+  metrics:
+    distribution:
+      percentiles:
+        http:
+          server:
+            requests: 0.5, 0.75, 0.9, 0.95, 0.99
